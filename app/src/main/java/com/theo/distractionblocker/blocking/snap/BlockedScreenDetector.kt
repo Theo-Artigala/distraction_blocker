@@ -13,19 +13,19 @@ import com.theo.distractionblocker.blocking.DetectionConfig
  *
  * Trois strategies, de la plus fiable a la plus risquee :
  *
- * 1. [DetectionConfig.SnapConfig.blockedScreenViewIds] : un identifiant de vue
+ * 1. [DetectionConfig.ScreenConfig.blockedScreenViewIds] : un identifiant de vue
  *    qui n'existe que sur la page Spotlight. Sa simple presence suffit. C'est la
  *    strategie a privilegier : zero faux positif.
- * 2. [DetectionConfig.SnapConfig.blockedScreenTabViewIds] : l'identifiant du bouton
+ * 2. [DetectionConfig.ScreenConfig.blockedScreenTabViewIds] : l'identifiant du bouton
  *    d'onglet Spotlight, present en permanence dans la barre du bas. On ne
  *    declenche que s'il est marque "selected".
- * 3. [DetectionConfig.SnapConfig.blockedScreenContentDescriptions] puis le texte
+ * 3. [DetectionConfig.ScreenConfig.blockedScreenContentDescriptions] puis le texte
  *    (si useTextHeuristic est vrai) : on parcourt l'arbre. Pratique quand
  *    Snapchat n'expose aucun resource-id utile, mais un libelle "Spotlight"
  *    peut trainer ailleurs que sur la page Spotlight, d'ou les faux positifs.
  *    Desactive par defaut.
  */
-object SnapScreenDetector {
+object BlockedScreenDetector {
 
     /**
      * Profondeur maximale d'exploration de l'arbre. La hierarchie de Snapchat
@@ -38,7 +38,7 @@ object SnapScreenDetector {
      * @param root racine de la fenetre active (rootInActiveWindow).
      * @return true si l'ecran affiche, selon la config, l'onglet Spotlight.
      */
-    fun isOnBlockedScreen(root: AccessibilityNodeInfo?, config: DetectionConfig.SnapConfig): Boolean {
+    fun isOnBlockedScreen(root: AccessibilityNodeInfo?, config: DetectionConfig.ScreenConfig): Boolean {
         if (root == null) return false
 
         // Strategie 1 : une vue qui n'existe que sur Spotlight.

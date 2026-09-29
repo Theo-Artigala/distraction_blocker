@@ -119,7 +119,7 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
             if (scheduledAt != null) {
                 noticeChannel.send(
                     "Anti-triche actif : appliqué dans " +
-                        "${SettingsRepository.ANTI_CHEAT_DELAY_MINUTES} minutes",
+                        SettingsRepository.antiCheatDelayLabel,
                 )
             }
         }

@@ -72,5 +72,56 @@
   },
   "instagram": {
     "packageName": "com.instagram.android"
+  },
+  "youtube": {
+    "packageName": "com.google.android.youtube",
+    "_action": [
+      "back sort du lecteur Shorts et revient a l'ecran precedent.",
+      "home quitterait YouTube entierement, ce qui est excessif : seul le",
+      "lecteur Shorts est vise, pas l'application."
+    ],
+    "action": "back",
+    "_blockedScreenViewIds": [
+      "Releves le 2026-09-29 sur un Xiaomi 12T Pro, par comparaison d'un dump",
+      "pris dans le lecteur Shorts et d'un dump de l'accueil YouTube.",
+      "YouTube appelle les Shorts 'reel' en interne, d'ou le prefixe.",
+      "Les trois retenus sont des CONTENEURS de page, pas des elements de",
+      "contenu : ils existent tant que le lecteur Shorts est affiche.",
+      "",
+      "ECARTE alors qu'il porte le prefixe reel_ :",
+      "  reel_time_bar : present AUSSI sur l'accueil YouTube. L'utiliser",
+      "    aurait ejecte de YouTube en permanence.",
+      "",
+      "ECARTES car absents de l'accueil mais aux noms generiques de lecteur :",
+      "  player_overlay, nerd_stats_container, fragment_container_view.",
+      "    Le dump de reference etait l'accueil, pas une video classique en",
+      "    lecture : rien ne prouve qu'ils en soient absents. Les utiliser",
+      "    risquerait d'ejecter d'une video normale.",
+      "",
+      "Autres candidats exclusifs, utilisables si ceux-ci cassent :",
+      "  reel_player_overlay_root, reel_player_page_content, reel_watch_player,",
+      "  reel_watch_refresher, reel_video_interactions, reel_player_underlay."
+    ],
+    "blockedScreenViewIds": [
+      "com.google.android.youtube:id/reel_watch_fragment_root",
+      "com.google.android.youtube:id/reel_player_page_container",
+      "com.google.android.youtube:id/reel_recycler"
+    ],
+    "_blockedScreenTabViewIds": [
+      "Inutile ici : on detecte le lecteur lui-meme, pas l'onglet de la",
+      "barre du bas. Bloquer l'onglet ne servirait a rien puisqu'un Short",
+      "s'ouvre aussi depuis l'accueil ou la recherche."
+    ],
+    "blockedScreenTabViewIds": [],
+    "_blockedScreenContentDescriptions": [
+      "Vide : le content-desc 'Shorts' existe, mais sur le BOUTON de la barre",
+      "du bas, present en permanence. Il ne dit pas qu'on est dans le lecteur."
+    ],
+    "blockedScreenContentDescriptions": [],
+    "_useTextHeuristic": [
+      "Inutile : on a trois identifiants fiables."
+    ],
+    "useTextHeuristic": false,
+    "blockedScreenTexts": []
   }
 }

@@ -9,9 +9,9 @@ import java.io.File
 private const val TAG = "DetectionConfig"
 
 /**
- * Tout ce qui depend du DOM interne des applis surveillees (identifiants de vues
- * Snapchat, noms de paquets TikTok) vit dans un fichier JSON editable sur le
- * telephone, PAS dans le code.
+ * Tout ce qui depend de l'interface interne des applis surveillees
+ * (identifiants de vues Snapchat et YouTube, noms de paquets TikTok) vit dans
+ * un fichier JSON editable sur le telephone, PAS dans le code.
  *
  * Emplacement sur le telephone :
  *   /sdcard/Android/data/com.theo.distractionblocker/files/detection_config.json
@@ -22,28 +22,47 @@ private const val TAG = "DetectionConfig"
  * recharge tout seul des que sa date de modification change (voir [Loader]).
  */
 data class DetectionConfig(
-    val snapchat: SnapConfig,
+    val snapchat: ScreenConfig,
+    val youtube: ScreenConfig,
     val tiktokPackages: Set<String>,
     val instagramPackage: String,
 ) {
     /**
-     * Comment reconnaitre l'onglet Spotlight. Les trois strategies sont
-     * cumulatives : la premiere qui matche declenche le blocage.
+     * Comment reconnaitre un ecran a bloquer dans une application donnee.
+     *
+     * Volontairement generique : Snapchat (Spotlight, Stories) et YouTube
+     * (Shorts) posent exactement le meme probleme, seuls les identifiants
+     * changent. Ajouter une application se fait donc dans le JSON, sans
+     * toucher au code.
+     *
+     * Les trois strategies sont cumulatives : la premiere qui matche declenche
+     * le blocage.
      */
-    data class SnapConfig(
+    data class ScreenConfig(
         val packageName: String,
         /** "home" -> GLOBAL_ACTION_HOME, "back" -> GLOBAL_ACTION_BACK. */
         val action: String,
-        /** Identifiants de vues qui n'existent QUE sur la page Spotlight. */
+        /** Identifiants de vues qui n'existent QUE sur un ecran a bloquer. */
         val blockedScreenViewIds: List<String>,
-        /** Identifiants du bouton d'onglet Spotlight : matche s'il est selectionne. */
+        /** Identifiants d'un bouton d'onglet : matche seulement s'il est selectionne. */
         val blockedScreenTabViewIds: List<String>,
         /** content-desc a chercher (comparaison insensible a la casse, "contient"). */
         val blockedScreenContentDescriptions: List<String>,
         /** Heuristique de dernier recours : chercher un texte visible. Faux positifs possibles. */
         val useTextHeuristic: Boolean,
         val blockedScreenTexts: List<String>,
-    )
+    ) {
+        /**
+         * Une config sans aucun identifiant ne peut rien detecter. On le teste
+         * explicitement pour ne pas parcourir l'arbre d'accessibilite pour
+         * rien a chaque seconde, sur une application non calibree.
+         */
+        val isCalibrated: Boolean
+            get() = blockedScreenViewIds.isNotEmpty() ||
+                blockedScreenTabViewIds.isNotEmpty() ||
+                blockedScreenContentDescriptions.isNotEmpty() ||
+                (useTextHeuristic && blockedScreenTexts.isNotEmpty())
+    }
 
     companion object {
         const val FILE_NAME = "detection_config.json"
@@ -76,9 +95,18 @@ data class DetectionConfig(
 
         /** Valeurs de repli, utilisees si le JSON est absent ou mal forme. */
         val FALLBACK = DetectionConfig(
-            snapchat = SnapConfig(
+            snapchat = ScreenConfig(
                 packageName = "com.snapchat.android",
                 action = "home",
+                blockedScreenViewIds = emptyList(),
+                blockedScreenTabViewIds = emptyList(),
+                blockedScreenContentDescriptions = emptyList(),
+                useTextHeuristic = false,
+                blockedScreenTexts = emptyList(),
+            ),
+            youtube = ScreenConfig(
+                packageName = "com.google.android.youtube",
+                action = "back",
                 blockedScreenViewIds = emptyList(),
                 blockedScreenTabViewIds = emptyList(),
                 blockedScreenContentDescriptions = emptyList(),
@@ -95,26 +123,41 @@ data class DetectionConfig(
 
         fun parse(json: String): DetectionConfig {
             val root = JSONObject(json)
-            val snap = root.optJSONObject("snapchat") ?: JSONObject()
             val tiktok = root.optJSONObject("tiktok") ?: JSONObject()
             val insta = root.optJSONObject("instagram") ?: JSONObject()
             return DetectionConfig(
-                snapchat = SnapConfig(
-                    packageName = snap.optString("packageName", FALLBACK.snapchat.packageName),
-                    action = snap.optString("action", FALLBACK.snapchat.action),
-                    blockedScreenViewIds = snap.optJSONArray("blockedScreenViewIds").toStringList(),
-                    blockedScreenTabViewIds = snap.optJSONArray("blockedScreenTabViewIds").toStringList(),
-                    blockedScreenContentDescriptions =
-                        snap.optJSONArray("blockedScreenContentDescriptions").toStringList(),
-                    useTextHeuristic = snap.optBoolean("useTextHeuristic", false),
-                    blockedScreenTexts = snap.optJSONArray("blockedScreenTexts").toStringList(),
-                ),
+                snapchat = root.parseScreen("snapchat", FALLBACK.snapchat),
+                youtube = root.parseScreen("youtube", FALLBACK.youtube),
                 tiktokPackages = tiktok.optJSONArray("packageNames")
                     .toStringList()
                     .takeIf { it.isNotEmpty() }
                     ?.toSet()
                     ?: FALLBACK.tiktokPackages,
                 instagramPackage = insta.optString("packageName", FALLBACK.instagramPackage),
+            )
+        }
+
+        /**
+         * Lit une section d'ecran a bloquer. Toute cle absente retombe sur la
+         * valeur de repli : un JSON partiel reste exploitable plutot que de
+         * faire echouer toute la configuration.
+         */
+        private fun JSONObject.parseScreen(
+            sectionName: String,
+            fallback: ScreenConfig,
+        ): ScreenConfig {
+            val section = optJSONObject(sectionName) ?: return fallback
+            return ScreenConfig(
+                packageName = section.optString("packageName", fallback.packageName),
+                action = section.optString("action", fallback.action),
+                blockedScreenViewIds =
+                    section.optJSONArray("blockedScreenViewIds").toStringList(),
+                blockedScreenTabViewIds =
+                    section.optJSONArray("blockedScreenTabViewIds").toStringList(),
+                blockedScreenContentDescriptions =
+                    section.optJSONArray("blockedScreenContentDescriptions").toStringList(),
+                useTextHeuristic = section.optBoolean("useTextHeuristic", false),
+                blockedScreenTexts = section.optJSONArray("blockedScreenTexts").toStringList(),
             )
         }
 

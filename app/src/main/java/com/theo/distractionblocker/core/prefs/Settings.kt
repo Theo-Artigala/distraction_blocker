@@ -6,6 +6,7 @@ data class Settings(
     val tiktokQuotaEnabled: Boolean,
     val tiktokQuotaMinutes: Int,
     val blockInstagramOfficial: Boolean,
+    val blockYoutubeShorts: Boolean,
     val antiCheatEnabled: Boolean,
 ) {
     val tiktokQuotaMs: Long get() = tiktokQuotaMinutes * 60_000L
@@ -17,6 +18,7 @@ data class Settings(
             tiktokQuotaEnabled = false,
             tiktokQuotaMinutes = 30,
             blockInstagramOfficial = false,
+            blockYoutubeShorts = false,
             antiCheatEnabled = false,
         )
     }
@@ -32,6 +34,7 @@ enum class SettingKey(val storageName: String, val label: String) {
     TIKTOK_QUOTA_ENABLED("tiktok_quota_enabled", "Quota TikTok"),
     TIKTOK_QUOTA_MINUTES("tiktok_quota_minutes", "Durée du quota TikTok"),
     BLOCK_INSTAGRAM_OFFICIAL("block_instagram_official", "Blocage d'Instagram officiel"),
+    BLOCK_YOUTUBE_SHORTS("block_youtube_shorts", "Blocage des YouTube Shorts"),
     ANTI_CHEAT_ENABLED("anti_cheat_enabled", "Mode anti-triche"),
     RESET_TIKTOK_USAGE("reset_tiktok_usage", "Remise à zéro du temps TikTok"),
     ;

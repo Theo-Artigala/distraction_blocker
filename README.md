@@ -63,11 +63,11 @@ d'exister : un process qui héberge un foreground service est bien moins suscept
 tué. Sa notification est en `IMPORTANCE_MIN` : pas de son, pas d'icône dans la barre de
 statut, visible seulement en déroulant le volet.
 
-## Calibrer la détection Spotlight (Snapchat)
+## Calibrer la détection Snapchat (Spotlight et Stories)
 
-Je ne peux pas connaître les identifiants réels de l'onglet Spotlight : ils ne sont pas
-documentés et changent à chaque version de Snapchat. Toute la détection est isolée dans
-`SpotlightDetector.kt` et pilotée par un fichier JSON éditable sur le téléphone.
+Les identifiants de vues de Snapchat ne sont pas documentés et changent à chaque version.
+Toute la détection est isolée dans `SnapScreenDetector.kt` et pilotée par un fichier JSON
+éditable sur le téléphone : aucun recompilage n'est nécessaire pour la recalibrer.
 
 **Fichier à éditer** (créé au premier lancement) :
 
@@ -79,25 +79,31 @@ Le service le recharge tout seul dans les 5 secondes, sans redémarrage ni réin
 
 ### Relever les identifiants
 
+Un dump par écran à bloquer, plus un dump de référence sur un écran autorisé.
+
 ```bash
-# 1. Va sur l'onglet Spotlight dans Snapchat, puis :
-adb shell uiautomator dump /sdcard/spotlight.xml
-adb pull /sdcard/spotlight.xml
+# 1. Un dump par écran VISE (Spotlight, puis Stories) :
+adb shell uiautomator dump /sdcard/spotlight.xml && adb pull /sdcard/spotlight.xml
+adb shell uiautomator dump /sdcard/stories.xml   && adb pull /sdcard/stories.xml
 
-# 2. Va sur un AUTRE onglet (Chat, Caméra), puis :
-adb shell uiautomator dump /sdcard/autre.xml
-adb pull /sdcard/autre.xml
+# 2. Un dump de REFERENCE sur un écran autorisé (Chat, Caméra) :
+adb shell uiautomator dump /sdcard/autre.xml && adb pull /sdcard/autre.xml
 
-# 3. Cherche les resource-id et content-desc dans le dump Spotlight
-grep -o 'resource-id="[^"]*"' spotlight.xml | sort -u
-grep -o 'content-desc="[^"]*"' spotlight.xml | sort -u
-
-# 4. Trouve ce qui est présent dans spotlight.xml et ABSENT de autre.xml :
-#    c'est le meilleur candidat.
-comm -23 \
-  <(grep -o 'resource-id="[^"]*"' spotlight.xml | sort -u) \
-  <(grep -o 'resource-id="[^"]*"' autre.xml | sort -u)
+# 3. Ce qui est présent sur l'écran visé et ABSENT de la référence :
+#    ce sont les candidats.
+ids() { grep -o 'resource-id="[^"]*"' "$1" | sed 's/resource-id="//;s/"$//' \
+        | grep -v '^$' | sort -u; }
+comm -23 <(ids spotlight.xml) <(ids autre.xml)
+comm -23 <(ids stories.xml)   <(ids autre.xml)
 ```
+
+Tous les candidats ne se valent pas. Préfère un **conteneur de page** à un **élément de
+contenu** : `spotlight_container` existe tant que la page Spotlight est affichée, alors
+qu'une tuile comme `df_large_story` disparaît si l'onglet n'a rien à montrer.
+
+Et méfie-toi des identifiants trop génériques, même exclusifs : `opera_viewer` a été écarté
+parce que c'est le lecteur média de Snapchat, présent aussi sur les stories des amis en
+plein écran — il éjecterait en pleine lecture.
 
 ### Où mettre ce que tu as trouvé
 
@@ -105,13 +111,19 @@ Trois stratégies, cumulatives, de la plus fiable à la plus risquée :
 
 | Clé JSON | Quand l'utiliser | Risque |
 |---|---|---|
-| `spotlightOnlyViewIds` | Un `resource-id` qui n'existe **que** sur la page Spotlight (résultat de l'étape 4) | Aucun faux positif. À privilégier. |
-| `spotlightTabViewIds` | Le `resource-id` du bouton d'onglet Spotlight, présent en permanence dans la barre du bas. Ne déclenche que si le nœud est `selected` ou `checked` | Faible : dépend de Snapchat marquant bien l'onglet actif |
-| `spotlightContentDescriptions` | Aucun `resource-id` exploitable. Cherche un `content-desc` contenant « Spotlight ». Exige aussi la sélection | Moyen |
-| `useTextHeuristic: true` | Dernier recours : cherche un texte visible, **sans** exiger de sélection | Élevé : un libellé « Spotlight » ailleurs t'éjecte de Snapchat à tort. `false` par défaut. |
+| `blockedScreenViewIds` | Un `resource-id` qui n'existe **que** sur un écran à bloquer (résultat de l'étape 3) | Aucun faux positif. À privilégier. |
+| `blockedScreenTabViewIds` | Le `resource-id` d'un bouton d'onglet, présent en permanence dans la barre du bas. Ne déclenche que si le nœud est `selected` ou `checked` | **Inutilisable sur cette version de Snapchat** : aucun nœud n'est marqué `selected`, pas même l'onglet actif |
+| `blockedScreenContentDescriptions` | Un `content-desc` à chercher dans l'arbre. Exige aussi la sélection | Même limite : sans marquage de sélection, impossible de distinguer « tu y es » de « voici le bouton pour y aller » |
+| `useTextHeuristic: true` | Dernier recours : cherche un texte visible, **sans** exiger de sélection | Élevé : un libellé « Spotlight » ailleurs t'éjecte à tort. `false` par défaut. |
 
 `"action"` vaut `"home"` (retour à l'accueil du téléphone) ou `"back"` (retour arrière dans
-Snapchat, moins brutal).
+Snapchat). **`back` est le bon choix** : Snapchat restaure le dernier onglet ouvert, donc
+avec `home` on est éjecté à chaque lancement de l'app et elle devient inutilisable.
+
+Le blocage ne dépend pas que des événements d'accessibilité : le service réinspecte l'écran
+chaque seconde. Sans ça, atterrir sur un écran bloqué autrement qu'en naviguant — par
+exemple en y étant déposé par un retour arrière — ne déclenchait rien, parce qu'un écran
+déjà chargé et immobile n'émet plus aucun événement.
 
 ### Vérifier les paquets TikTok
 
@@ -130,9 +142,53 @@ dans deux fichiers.
 | Fichier | Contenu |
 |---|---|
 | `app/src/main/assets/insta_rules.css` | Masquage purement structurel (onglet Reels, liens `/reels/`) |
-| `app/src/main/assets/insta_rules.js` | Bloc `CONFIG` en haut du fichier : libellés sponsorisés, sélecteurs du fil « Abonnements », profondeur de la grille Explorer, et les interrupteurs `features` pour désactiver une règle qui casse |
+| `app/src/main/assets/insta_rules.js` | Bloc `CONFIG` en haut du fichier : tous les sélecteurs, libellés et réglages, plus les interrupteurs `features` pour désactiver une règle qui casse |
 
 Ces fichiers sont dans l'APK : après modification, `./gradlew assembleDebug && adb install -r ...`.
+Il faut **fermer la WebView depuis le multitâche** avant de la relancer, sinon l'ancien
+script reste en mémoire.
+
+### Les règles en place, et pourquoi elles sont écrites comme ça
+
+Trois d'entre elles évitent délibérément les sélecteurs de structure, parce que c'est ce qui
+casse à chaque refonte d'Instagram. Elles partent d'un point d'ancrage stable et déduisent le
+reste.
+
+**Explorer : ne garder que la barre de recherche** (`CONFIG.explore`). Plutôt que de traquer
+les vignettes Reels une par une — ce qui obligeait à deviner de combien de parents remonter
+pour masquer une cellule — le script trouve la barre de recherche, remonte jusqu'au `body` et
+masque les frères et sœurs à chaque étage. Il ne faut donc qu'**un** sélecteur au lieu de
+connaître la grille.
+
+Deux garde-fous s'y ajoutent, parce qu'une isolation naïve faisait disparaître la navigation :
+est préservé tout ce qui est en `position: fixed` ou `sticky` (du chrome d'interface, pas du
+contenu défilant), et tout ce qui contient au moins deux liens vers les destinations
+principales (`/`, `/explore`, `/direct`). La barre du bas d'Instagram n'étant ni un `<nav>` ni
+un `role="navigation"`, les seuls sélecteurs explicites ne suffisaient pas.
+
+L'isolation est **levée dès que tu touches la recherche**. Instagram affiche ses résultats
+dans un conteneur qui n'est pas un ancêtre de la barre : il était donc masqué dès son
+apparition, et la barre semblait morte. Le but étant de supprimer la grille, pas d'empêcher de
+chercher, le compromis est de tout réafficher au premier contact. L'isolation revient à la
+navigation suivante.
+
+**Reel reçu en DM : lecture oui, défilement non** (`CONFIG.reelViewer`). Même principe : on
+part de la `<video>` qui occupe l'écran, on remonte au premier conteneur qui déborde vraiment,
+et on le fige avec `touch-action: none` — ce qui neutralise le geste de défilement sans
+désactiver les taps, donc lecture, pause et fermeture continuent de répondre. Le verrou ne
+s'applique que si la vidéo couvre au moins 60 % de la hauteur d'écran, pour ne pas bloquer le
+défilement d'une conversation contenant une vignette.
+
+**Diagnostic.** Passer `CONFIG.debug` à `true` fait journaliser, à chaque changement de page,
+le nombre de posts détectés, de liens Reels, de sélecteurs de fil trouvés, et le sélecteur
+retenu pour la barre de recherche. Visible sans navigateur :
+
+```bash
+adb logcat -s InstaWebView
+```
+
+C'est le moyen le plus rapide de voir lequel de tes sélecteurs a cessé de matcher. À remettre
+à `false` ensuite, c'est très bavard.
 
 ### Trouver les bons sélecteurs avec chrome://inspect
 
@@ -158,12 +214,20 @@ Les classes du type `x1i10hfl` ou `_aacl` sont générées et changent à chaque
 
 ## Mode anti-triche
 
-Quand il est activé, **tout** changement de réglage — y compris désactiver l'anti-triche
-lui-même, et la remise à zéro du compteur TikTok — n'est appliqué qu'après 10 minutes, avec
-un compte à rebours affiché. Annuler une demande en attente est en revanche immédiat : ça ne
-fait que conserver l'état déjà appliqué, donc ça ne peut rien relâcher.
+Le délai est **asymétrique**, et c'est tout l'intérêt :
 
-Le délai est la constante `ANTI_CHEAT_DELAY_MINUTES` dans `SettingsRepository.kt`.
+- **Durcir une limite s'applique immédiatement** — activer un blocage, raccourcir le quota,
+  activer l'anti-triche lui-même. Retarder un durcissement n'aurait aucun sens : le délai
+  existe pour décourager de céder, pas pour pénaliser l'envie de mieux faire.
+- **Assouplir attend 1 heure**, avec un compte à rebours — désactiver un blocage, rallonger
+  le quota, remettre le compteur TikTok à zéro, désactiver l'anti-triche.
+
+Deux conséquences utiles : annuler une demande en attente est immédiat (ça ne fait que
+conserver l'état actuel), et un durcissement annule automatiquement un assouplissement en
+attente sur le même réglage — sinon celui-ci viendrait défaire le durcissement une heure plus
+tard sans qu'on l'ait redemandé.
+
+Le délai est la constante `ANTI_CHEAT_DELAY_MINUTES` dans `SettingsRepository.kt` (60 minutes). Le libellé affiché en découle automatiquement.
 
 Il n'y a aucune alarme programmée : les changements différés « tombent » parce que l'UI et le
 service appellent `applyDuePendingChanges()` chaque seconde. Un changement mûri pendant que
@@ -185,7 +249,7 @@ app/src/main/
     │   ├── BlockerAccessibilityService.kt   # détection du premier plan + application des blocages
     │   ├── AccessibilityStatus.kt           # le service est-il activé ?
     │   ├── DetectionConfig.kt               # lecture/rechargement du JSON éditable
-    │   ├── snap/SpotlightDetector.kt        # toute la détection Spotlight, isolée ici
+    │   ├── snap/SnapScreenDetector.kt       # toute la détection Snapchat, isolée ici
     │   └── tiktok/ForegroundStopwatch.kt    # chrono qui ne tourne qu'au premier plan
     ├── core/
     │   ├── prefs/  Settings.kt, SettingsRepository.kt   # DataStore + anti-triche

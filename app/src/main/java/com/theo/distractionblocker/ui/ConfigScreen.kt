@@ -139,6 +139,14 @@ private fun BlockingSection(state: ConfigUiState, viewModel: ConfigViewModel) {
         UsageRow(state, viewModel)
         HorizontalDivider()
         SwitchRow(
+            label = "YouTube Shorts",
+            description = "Sort du lecteur Shorts dès qu'il est détecté. " +
+                "Le reste de YouTube n'est pas touché.",
+            checked = state.settings.blockYoutubeShorts,
+            onCheckedChange = { viewModel.setSwitch(SettingKey.BLOCK_YOUTUBE_SHORTS, it) },
+        )
+        HorizontalDivider()
+        SwitchRow(
             label = "Instagram officiel",
             description = "Bloque totalement l'app Instagram, au profit de la WebView.",
             checked = state.settings.blockInstagramOfficial,
@@ -212,7 +220,7 @@ private fun UsageRow(state: ConfigUiState, viewModel: ConfigViewModel) {
                         if (state.settings.antiCheatEnabled) {
                             "Le mode anti-triche est actif : la remise à zéro ne " +
                                 "prendra effet que dans " +
-                                "${SettingsRepository.ANTI_CHEAT_DELAY_MINUTES} minutes."
+                                SettingsRepository.antiCheatDelayLabel + "."
                         } else {
                             "C'est immédiat."
                         },
@@ -238,16 +246,18 @@ private fun AntiCheatSection(state: ConfigUiState, viewModel: ConfigViewModel) {
     SectionCard(title = "Mode anti-triche") {
         SwitchRow(
             label = "Délai avant application",
-            description = "Quand il est actif, tout changement de réglage (y compris " +
-                "désactiver ce mode) n'est appliqué qu'après " +
-                "${SettingsRepository.ANTI_CHEAT_DELAY_MINUTES} minutes.",
+            description = "Quand il est actif, seuls les assouplissements attendent " +
+                SettingsRepository.antiCheatDelayLabel + " : désactiver un blocage, " +
+                "rallonger le quota, remettre le compteur à zéro, ou désactiver ce " +
+                "mode. Renforcer une limite s'applique tout de suite.",
             checked = state.settings.antiCheatEnabled,
             onCheckedChange = { viewModel.setSwitch(SettingKey.ANTI_CHEAT_ENABLED, it) },
         )
         Text(
             text = "À savoir : ce mode ne ralentit que les réglages de cette app. " +
                 "Désactiver le service d'accessibilité ou désinstaller l'app reste " +
-                "instantané.",
+                "instantané. Annuler une demande en attente est immédiat aussi : " +
+                "cela ne fait que conserver l'état actuel.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -477,12 +487,18 @@ private fun formatDuration(ms: Long): String {
     return if (hours > 0) "$hours h ${minutes.toString().padStart(2, '0')}" else "$minutes min"
 }
 
-/** Compte a rebours au format mm:ss. */
+/**
+ * Compte a rebours : mm:ss, ou h:mm:ss au-dela d'une heure. Sans le palier des
+ * heures, un delai d'une heure s'afficherait "60:00", qui se lit mal.
+ */
 private fun formatCountdown(ms: Long): String {
     val totalSeconds = ms / 1_000L
-    val minutes = totalSeconds / 60
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
     val seconds = totalSeconds % 60
-    return "${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
+    val mm = minutes.toString().padStart(2, '0')
+    val ss = seconds.toString().padStart(2, '0')
+    return if (hours > 0) "$hours:$mm:$ss" else "$mm:$ss"
 }
 
 private fun android.content.Context.toast(message: String) {

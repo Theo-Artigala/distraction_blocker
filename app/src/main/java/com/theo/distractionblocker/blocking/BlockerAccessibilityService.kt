@@ -13,7 +13,7 @@ import android.view.accessibility.AccessibilityWindowInfo
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import com.theo.distractionblocker.R
-import com.theo.distractionblocker.blocking.snap.SnapScreenDetector
+import com.theo.distractionblocker.blocking.snap.BlockedScreenDetector
 import com.theo.distractionblocker.blocking.tiktok.ForegroundStopwatch
 import com.theo.distractionblocker.core.prefs.Settings
 import com.theo.distractionblocker.core.prefs.SettingsRepository
@@ -72,8 +72,8 @@ class BlockerAccessibilityService : AccessibilityService() {
     /** Anti-rebond : collapse une rafale d'evenements en une seule action. */
     private var lastActionAtRealtime = 0L
 
-    /** Idem pour la detection Snapchat, qui tourne sur des evenements tres frequents. */
-    private var lastSnapCheckAtRealtime = 0L
+    /** Idem pour la detection d'ecran, qui tourne sur des evenements tres frequents. */
+    private var lastScreenCheckAtRealtime = 0L
 
     /**
      * L'ecran eteint n'emet pas d'evenement d'accessibilite : sans ce receiver,
@@ -155,7 +155,7 @@ class BlockerAccessibilityService : AccessibilityService() {
             // ce que MIUI fait regulierement.
             refreshForegroundFromActiveWindow()
             enforceTiktokQuotaIfNeeded()
-            enforceSnapchatIfNeeded()
+            enforceScreenBlockerIfNeeded()
 
             // Toutes les 5 s : ce qui touche au disque. Ecrire le compteur
             // chaque seconde serait du gaspillage pour une precision inutile.
@@ -218,7 +218,7 @@ class BlockerAccessibilityService : AccessibilityService() {
                 // Changer d'onglet dans Snapchat ne produit pas toujours un
                 // WINDOW_STATE_CHANGED : il faut aussi ecouter le contenu.
                 // Ces evenements arrivent en rafale, d'ou l'anti-rebond.
-                if (packageName == config.snapchat.packageName) {
+                if (activeScreenBlocker(packageName) != null) {
                     applyBlocking(packageName)
                 }
             }
@@ -241,51 +241,73 @@ class BlockerAccessibilityService : AccessibilityService() {
 
     /** Aiguillage : quel blocage s'applique a ce paquet ? */
     private fun applyBlocking(packageName: String) {
-        when {
-            packageName == config.instagramPackage && settings.blockInstagramOfficial ->
-                goHome("Instagram officiel bloque")
+        if (packageName == config.instagramPackage && settings.blockInstagramOfficial) {
+            goHome("Instagram officiel bloque")
+            return
+        }
 
-            packageName == config.snapchat.packageName && settings.blockSnapSpotlight ->
-                checkSnapchatBlockedScreen()
+        val screen = activeScreenBlocker(packageName)
+        if (screen != null) {
+            checkBlockedScreen(screen)
+            return
+        }
 
-            isTiktok(packageName) -> enforceTiktokQuotaIfNeeded()
+        if (isTiktok(packageName)) {
+            enforceTiktokQuotaIfNeeded()
         }
     }
 
     /**
-     * Verifie Snapchat depuis le tick, en plus des evenements.
+     * La configuration d'ecrans bloques qui s'applique a ce paquet, ou null.
      *
-     * Indispensable : un ecran Snapchat deja charge et immobile n'emet plus
-     * aucun evenement d'accessibilite. Sans ce controle periodique, atterrir sur
-     * un ecran bloque autrement qu'en naviguant (par exemple en y etant depose
-     * par un retour arriere) ne declenchait rien du tout, et on y restait.
+     * Snapchat (Spotlight, Stories) et YouTube (Shorts) posent exactement le
+     * meme probleme : reconnaitre un ecran precis dans une application par
+     * ailleurs autorisee. Ils partagent donc le meme detecteur, seuls les
+     * identifiants et l'interrupteur different.
      */
-    private fun enforceSnapchatIfNeeded() {
-        if (!settings.blockSnapSpotlight) return
-        if (foregroundPackage != config.snapchat.packageName) return
-        checkSnapchatBlockedScreen()
+    private fun activeScreenBlocker(packageName: String?): DetectionConfig.ScreenConfig? = when {
+        packageName == null -> null
+        packageName == config.snapchat.packageName && settings.blockSnapSpotlight -> config.snapchat
+        packageName == config.youtube.packageName && settings.blockYoutubeShorts -> config.youtube
+        else -> null
     }
 
-    private fun checkSnapchatBlockedScreen() {
+    /**
+     * Verifie l'ecran courant depuis le tick, en plus des evenements.
+     *
+     * Indispensable : un ecran deja charge et immobile n'emet plus aucun
+     * evenement d'accessibilite. Sans ce controle periodique, y atterrir
+     * autrement qu'en naviguant (par exemple en y etant depose par un retour
+     * arriere) ne declenchait rien du tout, et on y restait.
+     */
+    private fun enforceScreenBlockerIfNeeded() {
+        val screen = activeScreenBlocker(foregroundPackage) ?: return
+        checkBlockedScreen(screen)
+    }
+
+    private fun checkBlockedScreen(screen: DetectionConfig.ScreenConfig) {
+        // Une application non calibree ne peut rien detecter : inutile de
+        // parcourir son arbre d'accessibilite chaque seconde pour rien.
+        if (!screen.isCalibrated) return
+
         val now = SystemClock.elapsedRealtime()
-        if (now - lastSnapCheckAtRealtime < SNAP_CHECK_INTERVAL_MS) return
-        lastSnapCheckAtRealtime = now
+        if (now - lastScreenCheckAtRealtime < SCREEN_CHECK_INTERVAL_MS) return
+        lastScreenCheckAtRealtime = now
 
-        val snap = config.snapchat
-        if (!SnapScreenDetector.isOnBlockedScreen(rootInActiveWindow, snap)) return
+        if (!BlockedScreenDetector.isOnBlockedScreen(rootInActiveWindow, screen)) return
 
-        if (snap.action.equals("back", ignoreCase = true)) {
-            // Retour arriere : ramene generalement a l'onglet precedent de
-            // Snapchat, moins brutal que de quitter l'app.
+        if (screen.action.equals("back", ignoreCase = true)) {
+            // Retour arriere : ramene a l'ecran precedent de l'application,
+            // moins brutal que de la quitter.
             // BACK n'est PAS idempotent : l'enchainer ferait sortir de
-            // Snapchat entierement. D'ou un anti-rebond long ici.
+            // l'application entierement, d'ou un anti-rebond plus long.
             performBlockingAction(
                 GLOBAL_ACTION_BACK,
                 BACK_COOLDOWN_MS,
-                "Ecran Snapchat bloque, retour arriere",
+                "Ecran bloque (${screen.packageName}), retour arriere",
             )
         } else {
-            goHome("Ecran Snapchat bloque")
+            goHome("Ecran bloque (${screen.packageName})")
         }
     }
 
@@ -372,7 +394,7 @@ class BlockerAccessibilityService : AccessibilityService() {
          */
         const val BACK_COOLDOWN_MS = 700L
 
-        /** Duree minimale entre deux inspections de l'arbre Snapchat. */
-        const val SNAP_CHECK_INTERVAL_MS = 400L
+        /** Duree minimale entre deux inspections de l'arbre d'accessibilite. */
+        const val SCREEN_CHECK_INTERVAL_MS = 400L
     }
 }

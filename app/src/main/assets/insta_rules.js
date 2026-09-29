@@ -61,7 +61,7 @@
          * adb logcat -s InstaWebView. A repasser a false une fois les
          * selecteurs cales : ca bavarde beaucoup.
          */
-        debug: true,
+        debug: false,
 
         /* --- Redirection des Reels ------------------------------------------
          * Prefixes de chemin consideres comme du Reels. Teste avec
