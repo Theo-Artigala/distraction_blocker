@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Dossier où l'on dépose les photos prises depuis la WebView, exposé à
+         l'app Appareil photo via le FileProvider. -->
+    <external-files-path name="insta_captures" path="captures/" />
+</paths>

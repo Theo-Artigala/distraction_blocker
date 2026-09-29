@@ -1,0 +1,70 @@
+/* ===========================================================================
+ * insta_rules.css — tout le masquage purement visuel d'Instagram.
+ *
+ * Ce fichier est injecte dans la WebView a chaque chargement de page. Le code
+ * Kotlin ne connait aucun selecteur : tu peux tout changer ici et relancer
+ * l'app, sans recompiler (les assets sont relus a chaque demarrage... en
+ * pratique il faut reinstaller l'APK, mais aucune logique Kotlin n'est a
+ * toucher). Pour iterer vite, teste d'abord tes selecteurs dans la console
+ * chrome://inspect (voir insta_rules.js).
+ *
+ * REGLE D'OR : masquer, ce n'est pas bloquer. Un selector trop large ici peut
+ * faire disparaitre des posts legitimes. Le CSS ne sert qu'aux elements
+ * structurels stables ; tout ce qui demande de lire du texte (reperer
+ * "Sponsorise") est fait en JS dans insta_rules.js.
+ *
+ * Les classes utilitaires d'Instagram (x1i10hfl, _aacl…) changent a chaque
+ * deploiement. Prefere toujours, dans cet ordre :
+ *   1. un attribut aria-label ou role
+ *   2. un href
+ *   3. un attribut de test (data-*)
+ *   4. en dernier recours seulement, une classe
+ * ========================================================================= */
+
+/* --- Onglet / liens Reels -------------------------------------------------
+ * La barre de navigation expose les destinations via leur href. C'est le
+ * point d'accroche le plus stable du site.
+ * Les aria-label couvrent l'anglais et le francais selon la langue du compte. */
+a[href="/reels/"],
+a[href^="/reels/"],
+a[href^="/reel/"],
+a[aria-label="Reels"],
+a[aria-label="Reels et vidéos courtes"],
+div[role="tablist"] a[href*="/reels"],
+/* Icone Reels dans la barre du bas en mobile web */
+nav a[href*="/reels"] {
+    display: none !important;
+}
+
+/* --- Bouton "Creer une story/reel" qui pousse vers Reels ------------------
+ * Ne masque QUE l'entree Reels du menu de creation, pas le bouton creer. */
+a[href="/reels/create/"],
+a[href^="/create/reel"] {
+    display: none !important;
+}
+
+/* --- Onglet Reels dans un profil -----------------------------------------
+ * Les onglets d'un profil (Publications / Reels / Identifie) sont des liens
+ * dont l'href finit par /reels/. */
+a[href$="/reels/"][role="tab"],
+div[role="tablist"] a[href$="/reels/"] {
+    display: none !important;
+}
+
+/* --- Classe posee par insta_rules.js ------------------------------------
+ * Le JS ne supprime jamais un noeud : il lui ajoute cette classe. Ca rend le
+ * masquage reversible et debuggable (tu peux commenter cette regle pour voir
+ * ce que le JS a attrape, sans toucher au JS). */
+.db-hidden {
+    display: none !important;
+}
+
+/* Variante utile au debug : au lieu de masquer, encadrer en rouge.
+ * Remplace la regle .db-hidden ci-dessus par celle-ci pour verifier que tu
+ * n'attrapes pas des posts legitimes.
+ *
+ * .db-hidden {
+ *     outline: 3px solid red !important;
+ *     opacity: 0.35 !important;
+ * }
+ */

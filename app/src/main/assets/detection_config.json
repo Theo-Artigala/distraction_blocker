@@ -1,0 +1,76 @@
+{
+  "_aide": [
+    "Ce fichier est copie au premier lancement dans :",
+    "/sdcard/Android/data/com.theo.distractionblocker/files/detection_config.json",
+    "C'est CETTE copie qu'il faut editer (adb push, ou un gestionnaire de fichiers).",
+    "Le service la recharge tout seul dans les 5 secondes, sans redemarrage.",
+    "Les cles commencant par _ sont ignorees par le code : ce sont des notes.",
+    "Voir la section 'Calibrer la detection Spotlight' du README."
+  ],
+  "snapchat": {
+    "packageName": "com.snapchat.android",
+    "_action": [
+      "home = retour a l'accueil du telephone, back = retour arriere dans Snapchat.",
+      "back est le bon choix ici : Snapchat restaure le dernier onglet ouvert, donc",
+      "avec home on est ejecte a CHAQUE ouverture de l'app et Snapchat devient",
+      "inutilisable. Le retour arriere ramene a l'ecran Camera et laisse le reste",
+      "de l'app accessible."
+    ],
+    "action": "back",
+    "_blockedScreenViewIds": [
+      "Identifiants presents UNIQUEMENT sur les ecrans a bloquer : leur presence suffit.",
+      "Releves le 2026-09-29 sur un Xiaomi 12T Pro, par comparaison de trois dumps",
+      "uiautomator (Spotlight / Stories / Chat).",
+      "  spotlight_container : conteneur de la page Spotlight. Tres fiable.",
+      "  df_large_story et friend_card_frame : tuiles de l'onglet Stories. Moins",
+      "    robustes, ce sont des elements de CONTENU et non un conteneur de page :",
+      "    si l'onglet n'a temporairement rien a afficher, ils disparaissent et la",
+      "    detection rate. D'ou les deux, pour elargir la couverture.",
+      "Ecartes volontairement, bien qu'exclusifs eux aussi :",
+      "  opera_viewer : lecteur media generique, apparait aussi sur les stories des",
+      "    amis en plein ecran. Il ejecterait en pleine lecture.",
+      "  favorite : bouton favori, trop susceptible d'apparaitre ailleurs.",
+      "A revoir apres une mise a jour de Snapchat : refaire la procedure du README."
+    ],
+    "blockedScreenViewIds": [
+      "com.snapchat.android:id/spotlight_container",
+      "com.snapchat.android:id/df_large_story",
+      "com.snapchat.android:id/friend_card_frame"
+    ],
+    "_blockedScreenTabViewIds": [
+      "Vide a dessein : sur cette version de Snapchat, AUCUN noeud ne porte",
+      "selected=true ni checked=true, y compris l'onglet actif. Cette strategie,",
+      "qui exige la selection, ne peut donc rien detecter ici."
+    ],
+    "blockedScreenTabViewIds": [],
+    "_blockedScreenContentDescriptions": [
+      "Vide pour la meme raison : les content-desc 'Spotlight' et 'Stories' existent,",
+      "mais seulement sur les BOUTONS d'onglet, presents en permanence dans la barre",
+      "du bas. Sans marquage de selection, impossible de distinguer 'tu y es' de",
+      "'voici le bouton pour y aller'."
+    ],
+    "blockedScreenContentDescriptions": [],
+    "_useTextHeuristic": [
+      "Dernier recours, inutile ici puisqu'on a un identifiant fiable.",
+      "L'activer provoquerait des faux positifs."
+    ],
+    "useTextHeuristic": false,
+    "blockedScreenTexts": []
+  },
+  "tiktok": {
+    "_packageNames": [
+      "com.zhiliaoapp.musically = TikTok monde (celui installe sur ce telephone)",
+      "com.ss.android.ugc.trill = ancienne version internationale",
+      "com.zhiliaoapp.musically.go = TikTok Lite",
+      "Verifier : adb shell pm list packages | grep -i -e tiktok -e musically -e trill"
+    ],
+    "packageNames": [
+      "com.zhiliaoapp.musically",
+      "com.ss.android.ugc.trill",
+      "com.zhiliaoapp.musically.go"
+    ]
+  },
+  "instagram": {
+    "packageName": "com.instagram.android"
+  }
+}

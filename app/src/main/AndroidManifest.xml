@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Réseau : uniquement pour la WebView Instagram. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Foreground service : garde un process vivant pour que HyperOS tue
+         moins facilement le service d'accessibilité. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- Nécessaire depuis Android 13 pour afficher la notification du service. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Relance le foreground service après un redémarrage du téléphone. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- Prise de photo depuis la WebView (poster une story / un post). -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Micro : uniquement pour une story video filmee depuis la WebView. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
+    <!-- Téléchargement d'images depuis la WebView. Sur API 29+ le
+         DownloadManager écrit dans Downloads sans permission. -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="false"
+        android:theme="@style/Theme.DistractionBlocker"
+        tools:targetApi="34">
+
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- La WebView Instagram. Sa propre tâche pour que le multitâche la
+             montre séparément de l'écran de config. -->
+        <!--
+             Deuxieme icone de lanceur : la WebView apparait comme une app a
+             part entiere sur l'ecran d'accueil, a cote de Distraction Blocker.
+             taskAffinity distinct pour qu'elle ait sa propre vignette dans le
+             multitache plutot que d'etre empilee sur l'ecran de config.
+        -->
+        <activity
+            android:name=".insta.InstaWebViewActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:icon="@mipmap/ic_launcher_insta"
+            android:label="@string/insta_title"
+            android:taskAffinity="${applicationId}.insta">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".blocking.BlockerAccessibilityService"
+            android:exported="true"
+            android:label="@string/accessibility_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <!-- "specialUse" : aucun type standard (localisation, média…) ne
+             correspond à « empêcher MIUI de me tuer ». -->
+        <service
+            android:name=".service.KeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Maintient actif le service d'accessibilite de blocage" />
+        </service>
+
+        <receiver
+            android:name=".service.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <!-- MIUI envoie parfois celui-ci à la place. -->
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Sert à donner à l'app Appareil photo une URI où écrire la photo
+             prise depuis la WebView. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+</manifest>

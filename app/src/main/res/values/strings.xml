@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">Distraction Blocker</string>
+    <string name="insta_title">Instagram</string>
+
+    <string name="accessibility_service_label">Distraction Blocker</string>
+    <string name="accessibility_service_summary">Bloque Spotlight, le quota TikTok et Instagram officiel</string>
+    <string name="accessibility_service_description">Surveille l\'application au premier plan pour appliquer les blocages configurés (Snapchat Spotlight, quota de temps TikTok, Instagram officiel). Aucune donnée ne quitte le téléphone.</string>
+
+    <string name="notification_channel_name">Service actif</string>
+    <string name="notification_title">Blocages actifs</string>
+
+    <string name="quota_reached_toast">Quota TikTok atteint pour aujourd\'hui</string>
+</resources>

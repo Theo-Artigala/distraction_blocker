@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/accessibility_service_description"
+    android:summary="@string/accessibility_service_summary"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagDefault|flagIncludeNotImportantViews|flagRetrieveInteractiveWindows"
+    android:canRetrieveWindowContent="true"
+    android:notificationTimeout="100" />
+<!--
+  Pourquoi PAS d'attribut android:packageNames ?
+  Parce qu'il faut savoir quand TikTok QUITTE le premier plan. Si on filtrait
+  sur les seuls paquets surveillés, on ne recevrait jamais l'événement
+  "une autre app est passée devant", et le chrono ne s'arrêterait jamais.
+  On écoute donc tout, et on filtre côté Kotlin (BlockerAccessibilityService).
+
+  notificationTimeout=100 : Android regroupe les événements et n'en livre au
+  maximum qu'un toutes les 100 ms. C'est la borne basse du délai de réaction
+  du blocage.
+-->

@@ -1,0 +1,20 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Appareil photo stylise : evite de reprendre la marque Instagram tout
+         en restant reconnaissable. Le contenu visible tient dans les 72dp
+         centraux des 108dp d'une icone adaptative. -->
+    <group android:translateX="30" android:translateY="30">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M13,5h22a8,8 0 0 1 8,8v22a8,8 0 0 1 -8,8H13a8,8 0 0 1 -8,-8V13A8,8 0 0 1 13,5zM13,9a4,4 0 0 0 -4,4v22a4,4 0 0 0 4,4h22a4,4 0 0 0 4,-4V13a4,4 0 0 0 -4,-4z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M24,14a10,10 0 1 1 0,20a10,10 0 0 1 0,-20zM24,18a6,6 0 1 0 0,12a6,6 0 0 0 0,-12z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M35.5,11.5m-2.5,0a2.5,2.5 0 1 1 5,0a2.5,2.5 0 1 1 -5,0" />
+    </group>
+</vector>
